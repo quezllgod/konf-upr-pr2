@@ -9,6 +9,7 @@ from src.cli import main
 from src.config import parse_config
 from src.errors import AppError
 from src.graph import build_graph
+from src.render import save_graph, to_mermaid
 from src.repository import NpmRepository
 from src.reverse import reverse_dependencies
 from src.test_repository import TestRepository
@@ -168,3 +169,16 @@ class ReverseTests(unittest.TestCase):
         nodes = reverse_dependencies(graph, 'A')
         self.assertEqual({n[0] for n in nodes}, {'B', 'C'})
         self.assertEqual(len(reverse_dependencies(graph, 'A', 1)), 1)
+
+
+class RenderTests(unittest.TestCase):
+    def test_png_and_mermaid(self):
+        repo = TestRepository(ROOT / 'examples/diamond.json', '1.0.0')
+        graph = build_graph(repo, 'A', '1.0.0')
+        self.assertIn('flowchart LR', to_mermaid(graph))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'graph.png'
+            save_graph(graph, path)
+            self.assertTrue(path.read_bytes().startswith(b'\x89PNG'))
+            self.assertEqual(path.with_suffix('.mmd').read_text(),
+                             to_mermaid(graph) + '\n')

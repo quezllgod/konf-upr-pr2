@@ -1,9 +1,10 @@
-# ПР №2 — этап 4. Обратные зависимости
+# ПР №2 — этап 5. Mermaid и PNG
 
 Конфигурационное управление, вариант 14. Формат пакетов: JavaScript (npm).
 
-Находит прямые и транзитивные обратные зависимости итеративным DFS.
-В локальном режиме область поиска — весь тестовый репозиторий.
+Формирует Mermaid и сохраняет PNG с теми же узлами и рёбрами.
+PNG рисуется собственным модулем на стандартной библиотеке Python;
+Mermaid CLI, Node.js и графический сервер для запуска не нужны.
 
 ## Сборка и запуск
 
@@ -11,7 +12,7 @@ Python 3.10+, только стандартная библиотека. Сбор
 Команды выполняются из папки этого этапа:
 
 ```sh
-./run.sh --test --repository examples/reverse.json --package D --version 1.0.0
+./run.sh --test --repository examples/diamond.json --package A --version 1.0.0
 ```
 
 Прямой запуск: `python3 -B src/__main__.py` с теми же параметрами.
@@ -28,7 +29,7 @@ Windows: `py -B -m src`. Справка: `./run.sh --help`.
 | `--test` | Читать локальный тестовый репозиторий | Выключен |
 | `--output` | Имя выходного PNG; рядом создаётся `.mmd` | graph.png |
 | `--max-depth` | Максимум рёбер от корня, 0 — только корень | 10 |
-| `--stage` | Выбрать доступный этап 1–4 | 4 |
+| `--stage` | Выбрать доступный этап 1–5 | 5 |
 | `--target` | Целевой пакет обратного поиска на этапе 4 | Значение package |
 
 До этапа 5 имя изображения только проверяется; файл не создаётся.
@@ -114,7 +115,28 @@ Registry не предоставляет полный список всех по
 ./run.sh --stage 4 --package is-odd --version 3.0.1 --target is-number
 ```
 
+## Визуализация и сравнение
+
+```sh
+./run.sh --package is-odd --version 3.0.1 --output examples/is-odd.png
+./run.sh --package is-even --version 1.0.0 --output examples/is-even.png
+./run.sh --package ansi-styles --version 4.3.0 --output examples/ansi-styles.png
+```
+
+`render.py`: Mermaid-текст в терминале и `.mmd` рядом с PNG.
+`png.py`: собственная растровая отрисовка графа и кодирование PNG.
+`font.json`: встроенный растровый шрифт, внешние шрифты не нужны.
+Mermaid и PNG — два представления одной структуры графа; PNG не
+требует запуска Mermaid. Для PNG установлен лимит 150 узлов.
+Выходные файлы перезаписываются при повторном запуске.
+
+В `examples/` сохранены три Mermaid-файла, изображения и результаты
+проверки против настоящего `npm ls --all`. См. [сравнение](examples/COMPARISON.md).
+Для повторения сравнения: `python3 -B scripts/compare_npm.py`.
+Только этой проверке нужны Node.js, npm и интернет. npm запускается
+во временном каталоге с отключёнными скриптами пакетов.
+
 ## Исходники
 
-config.py — параметры; versions.py — SemVer; cli.py — управление этапами; __main__.py — точка входа; repository.py — registry; test_repository.py — тестовый JSON; graph.py — DFS и граф; reverse.py — обратный поиск.
+config.py — параметры; versions.py — SemVer; cli.py — управление этапами; __main__.py — точка входа; repository.py — registry; test_repository.py — тестовый JSON; graph.py — DFS и граф; reverse.py — обратный поиск; render.py — Mermaid; png.py — изображение.
 Код находится в `src/`, проверки — в `tests/`.

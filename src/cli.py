@@ -3,6 +3,7 @@ import sys
 from .config import parse_config
 from .errors import AppError
 from .graph import build_graph, describe_graph, label
+from .render import save_graph, to_mermaid
 from .repository import NpmRepository
 from .reverse import reverse_dependencies
 from .test_repository import TestRepository
@@ -43,6 +44,10 @@ def run(config):
                                      config.max_depth)
         print('Обратные зависимости:')
         print('\n'.join(map(label, nodes)) or '(нет зависимостей)')
+    else:
+        save_graph(graph, config.output)
+        print(to_mermaid(graph))
+        print(f'PNG: {config.output}', file=sys.stderr)
     return 0
 
 

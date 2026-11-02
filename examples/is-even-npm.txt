@@ -1,0 +1,7 @@
+pr2-comparison@1.0.0 /private/var/folders/xj/htrsk3ns6tv0_t1v7rn9hchm0000gp/T/pr2-npm-9_6tqre3
+└─┬ is-even@1.0.0
+  └─┬ is-odd@0.1.2
+    └─┬ is-number@3.0.0
+      └─┬ kind-of@3.2.2
+        └── is-buffer@1.1.6
+
