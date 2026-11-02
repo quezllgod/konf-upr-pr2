@@ -1,14 +1,16 @@
 import io
 import tempfile
 import unittest
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from src.cli import main
 from src.config import parse_config
 from src.errors import AppError
 from src.graph import build_graph
 from src.repository import NpmRepository
+from src.reverse import reverse_dependencies
 from src.test_repository import TestRepository
 from src.versions import matches, version_key
 
@@ -148,3 +150,21 @@ class GraphTests(unittest.TestCase):
                 return spec
         self.assertEqual(len(build_graph(Chain(), '0', '1.0.0',
                                          999).order), 900)
+
+
+class ReverseTests(unittest.TestCase):
+    def test_full_test_scope_and_cycle(self):
+        output = io.StringIO()
+        args = ['--test', '--package', 'D', '--version', '1.0.0',
+                '--repository', str(ROOT / 'examples/reverse.json'),
+                '--stage', '4']
+        with redirect_stdout(output):
+            self.assertEqual(main(args), 0)
+        for node in ['A', 'B', 'C']:
+            self.assertIn(node + '@1.0.0', output.getvalue())
+        self.assertNotIn('Z@', output.getvalue())
+        repo = TestRepository(ROOT / 'examples/cycle.json', '1.0.0')
+        graph = build_graph(repo, 'A', '1.0.0')
+        nodes = reverse_dependencies(graph, 'A')
+        self.assertEqual({n[0] for n in nodes}, {'B', 'C'})
+        self.assertEqual(len(reverse_dependencies(graph, 'A', 1)), 1)

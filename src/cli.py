@@ -2,8 +2,9 @@ import sys
 
 from .config import parse_config
 from .errors import AppError
-from .graph import build_graph, describe_graph
+from .graph import build_graph, describe_graph, label
 from .repository import NpmRepository
+from .reverse import reverse_dependencies
 from .test_repository import TestRepository
 
 CONFIG_STAGE, DIRECT_STAGE, GRAPH_STAGE, REVERSE_STAGE = 1, 2, 3, 4
@@ -34,7 +35,31 @@ def run(config):
         if not dependencies:
             print('(нет зависимостей)')
         return 0
-    graph = build_graph(repository, config.package,
-                        config.version, config.max_depth)
-    print(describe_graph(graph))
+    graph = analysis_graph(repository, config)
+    if config.stage == GRAPH_STAGE:
+        print(describe_graph(graph))
+    elif config.stage == REVERSE_STAGE:
+        nodes = reverse_dependencies(graph, config.target or config.package,
+                                     config.max_depth)
+        print('Обратные зависимости:')
+        print('\n'.join(map(label, nodes)) or '(нет зависимостей)')
     return 0
+
+
+def analysis_graph(repository, config):
+    """Построить область прямого или обратного поиска."""
+    if config.test and config.stage == REVERSE_STAGE:
+        from .graph import Graph
+        repository.dependencies(config.package, config.version)
+        graph = Graph((config.package, config.version))
+        for name in repository.data:
+            part = build_graph(repository, name, config.version,
+                               config.max_depth)
+            for node in part.order:
+                if node not in graph.edges:
+                    graph.order.append(node)
+                graph.edges[node] = list(dict.fromkeys(
+                    graph.edges.get(node, []) + part.edges[node]))
+        return graph
+    return build_graph(repository, config.package, config.version,
+                       config.max_depth)
