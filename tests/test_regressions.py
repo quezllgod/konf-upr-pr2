@@ -39,3 +39,44 @@ class RegressionTests(unittest.TestCase):
                   self.assertRaises(SystemExit)):
                 parse_config(['--package', 'is-odd', '--version', '3.0.1',
                               '--repository', url])
+
+
+class RegistryRegressionTests(unittest.TestCase):
+    def project(self, data):
+        import json
+        from unittest.mock import patch
+
+        from src.repository import NpmRepository
+
+        response = io.BytesIO(json.dumps(data).encode())
+        repo = NpmRepository('https://example.org')
+        with patch('src.repository.urlopen', return_value=response):
+            return repo.project('a')
+
+    def test_malformed_metadata(self):
+        invalid = [[], {}, {'versions': []},
+                   {'versions': {}, 'dist-tags': []},
+                   {'versions': {}, 'dist-tags': {'latest': None}},
+                   {'versions': {}, 'dist-tags': {'latest': 'broken'}}]
+        for data in invalid:
+            with self.subTest(data=data), self.assertRaises(AppError):
+                self.project(data)
+
+    def test_bad_dependencies(self):
+        from src.repository import NpmRepository
+
+        repo = NpmRepository('https://example.org')
+        for dependencies in [[], {'b': None}, {'bad"name': '1.0.0'}]:
+            repo.cache['a'] = {'versions': {
+                '1.0.0': {'dependencies': dependencies}}}
+            with (self.subTest(dependencies=dependencies),
+                  self.assertRaises(AppError)):
+                repo.dependencies('a', '1.0.0')
+
+    def test_missing_tag_version(self):
+        from src.repository import NpmRepository
+
+        repo = NpmRepository('https://example.org')
+        repo.cache['a'] = {'versions': {}, 'dist-tags': {'latest': '1.0.0'}}
+        with self.assertRaises(AppError):
+            repo.resolve('a', 'latest')
