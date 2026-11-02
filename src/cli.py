@@ -2,6 +2,7 @@ import sys
 
 from .config import parse_config
 from .errors import AppError
+from .graph import build_graph, describe_graph
 from .repository import NpmRepository
 from .test_repository import TestRepository
 
@@ -33,3 +34,7 @@ def run(config):
         if not dependencies:
             print('(нет зависимостей)')
         return 0
+    graph = build_graph(repository, config.package,
+                        config.version, config.max_depth)
+    print(describe_graph(graph))
+    return 0

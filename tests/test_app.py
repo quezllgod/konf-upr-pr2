@@ -3,10 +3,11 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from src.config import parse_config
 from src.errors import AppError
+from src.graph import build_graph
 from src.repository import NpmRepository
 from src.test_repository import TestRepository
 from src.versions import matches, version_key
@@ -92,3 +93,58 @@ class RepositoryTests(unittest.TestCase):
                 path.write_text(raw)
                 with self.assertRaises(AppError):
                     TestRepository(path, '1.0.0')
+
+
+class GraphTests(unittest.TestCase):
+    def graph(self, name, depth=10):
+        repo = TestRepository(ROOT / f'examples/{name}.json', '1.0.0')
+        return build_graph(repo, 'A', '1.0.0', depth)
+
+    def test_dfs_and_cycle(self):
+        graph = self.graph('diamond')
+        self.assertEqual([n[0] for n in graph.order], ['A', 'B', 'D', 'C'])
+        graph = self.graph('cycle')
+        self.assertEqual(graph.edges[('C', '1.0.0')], [('A', '1.0.0')])
+
+    def test_depth_and_shorter_path(self):
+        self.assertEqual(len(self.graph('diamond', 0).order), 1)
+        self.assertEqual(len(self.graph('diamond', 1).order), 3)
+        graph = self.graph('shortcut', 2)
+        self.assertIn(('E', '1.0.0'), graph.edges)
+        self.assertEqual(graph.depths[('D', '1.0.0')], 1)
+
+    def test_self_cycle(self):
+        repo = Mock()
+        repo.dependencies.return_value = [('A', '1.0.0')]
+        repo.resolve.return_value = '1.0.0'
+        graph = build_graph(repo, 'A', '1.0.0')
+        self.assertEqual(graph.order, [('A', '1.0.0')])
+        self.assertEqual(graph.edges[('A', '1.0.0')], [('A', '1.0.0')])
+
+    def test_no_fetch_at_boundary(self):
+        repo = Mock()
+        graph = build_graph(repo, 'A', '1.0.0', 0)
+        repo.dependencies.assert_not_called()
+        self.assertEqual(graph.order, [('A', '1.0.0')])
+
+    def test_multiple_versions(self):
+        repo = NpmRepository('https://example.org')
+        repo.cache = {
+            'a': {'versions': {'1.0.0': {'dependencies': {
+                'b': '1', 'c': '1'}}}},
+            'b': {'versions': {'1.0.0': {}, '2.0.0': {}}},
+            'c': {'versions': {'1.0.0': {'dependencies': {'b': '2'}}}}}
+        graph = build_graph(repo, 'a', '1.0.0')
+        self.assertIn(('b', '1.0.0'), graph.edges)
+        self.assertIn(('b', '2.0.0'), graph.edges)
+
+    def test_deep_without_recursion(self):
+        class Chain:
+            def dependencies(self, name, version):
+                n = int(name)
+                return [(str(n + 1), version)] if n < LAST_CHAIN_NODE else []
+
+            def resolve(self, name, spec):
+                return spec
+        self.assertEqual(len(build_graph(Chain(), '0', '1.0.0',
+                                         999).order), 900)

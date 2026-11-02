@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 from .errors import AppError
 from .versions import version_key
 
-LAST_STAGE = 1
+LAST_STAGE = 3
 MIN_DEPTH = 0
 MIN_PORT = 1
 NAME = r'(?:@[a-z0-9._-]+/)?[a-z0-9][a-z0-9._-]*'
